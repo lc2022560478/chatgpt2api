@@ -1,0 +1,53 @@
+{
+  "generated_date": "2026-11-11",
+  "timezone": "Asia/Shanghai",
+  "version": "1.8.0",
+  "repository": "https://github.com/lc2022560478/chatgpt2api",
+  "branch": "main",
+  "publication": "One sanitized current-source commit on the existing remote main; local development history excluded.",
+  "excluded": [
+    "live config.json and private .env files",
+    "runtime account databases, tokens, backups, email lists, logs, images and task records",
+    "local agent settings and logs, patch scripts and debug SDK dumps",
+    "virtual environments, dependencies, caches, build artifacts and nested old source checkouts"
+  ],
+  "configuration": {
+    "template": "config.example.json",
+    "auth_key": "empty; must be supplied before deployment",
+    "private_external_connections": "disabled and credentials cleared",
+    "docker_build": "Copies the sanitized example; live config.json is ignored."
+  },
+  "verification": {
+    "known_private_values_checked": 4587,
+    "known_private_emails_checked": 1180,
+    "known_private_value_matches": 0,
+    "credential_format_matches": 0,
+    "private_key_matches": 0,
+    "personal_absolute_path_matches": 0,
+    "python_files_parsed": 117,
+    "json_files_parsed": 7,
+    "python_target_version": "3.13",
+    "gitleaks_version": "8.30.1",
+    "gitleaks_findings": 0,
+    "gitleaks_exception": "Exact public Auth0 SDK metadata header, verified against upstream commit e55aef2; two source paths only.",
+    "typescript_version": "5.9.3",
+    "typescript_project_files": 75,
+    "typescript_diagnostics": 0,
+    "docker_compose_configurations_validated": 3,
+    "solver_javascript_syntax": "passed",
+    "original_source_files_changed": false
+  },
+  "offline_regression": {
+    "tests_run": 277,
+    "passed": 267,
+    "skipped": 10,
+    "skip_reason": "WARP lifecycle tests require their dedicated disposable container.",
+    "failures": 0,
+    "errors": 0,
+    "network": "disabled",
+    "runtime": "Python 3.13 in a disposable Docker container; source mounted read-only and copied to temporary storage",
+    "live_service_integration_tests": "not run"
+  },
+  "additional_fix": "Fix the three-argument next() call in parallel image failure handling; existing regression passed.",
+  "scope": "Current publication and new commit only; existing remote public history was not re-audited."
+}

@@ -1,10 +1,108 @@
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   app:
-    image: ghcr.io/basketikun/chatgpt2api:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: chatgpt2api:e-root-1.8.0
     container_name: chatgpt2api
     restart: unless-stopped
+    init: true
+    depends_on:
+      flaresolverr:
+        condition: service_started
+      privoxy:
+        condition: service_started
+      sentinel_solver:
+        condition: service_started
     ports:
       - "3000:80"
     volumes:
       - ./data:/app/data
-      - ./config.json:/app/config.json:ro
+      - ./config.json:/app/config.json
+    environment:
+      CHATGPT2API_AUTH_KEY: ${CHATGPT2API_AUTH_KEY:-}
+      CHATGPT2API_SENTINEL_SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:-}
+      STORAGE_BACKEND: json
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1/version', timeout=5)\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+
+  warp:
+    image: caomingjun/warp:latest
+    container_name: chatgpt2api-warp
+    restart: unless-stopped
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: 0
+      net.ipv4.conf.all.src_valid_mark: 1
+    volumes:
+      - warp-data:/var/lib/cloudflare-warp
+    environment:
+      WARP_SLEEP: "2"
+    expose:
+      - "1080"
+    logging: *default-logging
+
+  privoxy:
+    image: vimagick/privoxy:latest
+    container_name: chatgpt2api-privoxy
+    restart: unless-stopped
+    depends_on:
+      warp:
+        condition: service_started
+    ports:
+      - "8118:8118"
+    volumes:
+      - ./docker/privoxy/config:/etc/privoxy/config:ro
+    networks:
+      default:
+        aliases:
+          - proxy
+    logging: *default-logging
+
+  flaresolverr:
+    image: flaresolverr/flaresolverr:latest
+    container_name: flaresolverr
+    restart: unless-stopped
+    ports:
+      - "8191:8191"
+    environment:
+      LOG_LEVEL: info
+    logging: *default-logging
+
+  sentinel_solver:
+    build:
+      context: ./sentinel_solver
+      dockerfile: Dockerfile
+    image: chatgpt2api-sentinel-solver:1.8.0
+    container_name: chatgpt2api-sentinel-solver
+    restart: unless-stopped
+    init: true
+    expose:
+      - "8787"
+    environment:
+      SOLVER_HOST: "0.0.0.0"
+      SOLVER_PORT: "8787"
+      SOLVER_KEY: ${CHATGPT2API_SENTINEL_SOLVER_KEY:-}
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging: *default-logging
+
+volumes:
+  warp-data:

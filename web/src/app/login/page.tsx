@@ -8,13 +8,16 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { HeaderActions } from "@/components/header-actions";
 import { login } from "@/lib/api";
-import { setStoredAuthKey } from "@/store/auth";
+import { useRedirectIfAuthenticated } from "@/lib/use-auth-guard";
+import { getDefaultRouteForRole, setStoredAuthSession } from "@/store/auth";
 
 export default function LoginPage() {
   const router = useRouter();
   const [authKey, setAuthKey] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { isCheckingAuth } = useRedirectIfAuthenticated();
 
   const handleLogin = async () => {
     const normalizedAuthKey = authKey.trim();
@@ -25,9 +28,14 @@ export default function LoginPage() {
 
     setIsSubmitting(true);
     try {
-      await login(normalizedAuthKey);
-      await setStoredAuthKey(normalizedAuthKey);
-      router.replace("/accounts");
+      const data = await login(normalizedAuthKey);
+      await setStoredAuthSession({
+        key: normalizedAuthKey,
+        role: data.role,
+        subjectId: data.subject_id,
+        name: data.name,
+      });
+      router.replace(getDefaultRouteForRole(data.role));
     } catch (error) {
       const message = error instanceof Error ? error.message : "登录失败";
       toast.error(message);
@@ -36,8 +44,17 @@ export default function LoginPage() {
     }
   };
 
+  if (isCheckingAuth) {
+    return (
+      <div className="grid min-h-[calc(100vh-1rem)] w-full place-items-center px-4 py-6">
+        <LoaderCircle className="size-5 animate-spin text-stone-400" />
+      </div>
+    );
+  }
+
   return (
     <div className="grid min-h-[calc(100vh-1rem)] w-full place-items-center px-4 py-6">
+      <HeaderActions className="fixed top-4 right-4 z-10" />
       <Card className="w-full max-w-[505px] rounded-[30px] border-white/80 bg-white/95 shadow-[0_28px_90px_rgba(28,25,23,0.10)]">
         <CardContent className="space-y-7 p-6 sm:p-8">
           <div className="space-y-4 text-center">

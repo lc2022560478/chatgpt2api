@@ -1,5 +1,6 @@
 import base64
 import binascii
+import json
 import logging
 import re
 from typing import Any
@@ -13,10 +14,18 @@ class Logger:
         self._logger = logging.getLogger(name)
         if not self._logger.handlers:
             handler = logging.StreamHandler()
-            handler.setFormatter(logging.Formatter("%(message)s"))
+            handler.setFormatter(logging.Formatter("[%(levelname)s] %(message)s"))
             self._logger.addHandler(handler)
-        self._logger.setLevel(logging.INFO)
+        self._logger.setLevel(logging.DEBUG)
         self._logger.propagate = False
+
+    def _enabled(self, level: str) -> bool:
+        try:
+            from services.config import config
+            levels = set(config.log_levels)
+        except Exception:
+            levels = set()
+        return level in (levels or {"info", "warning", "error"})
 
     def _mask_string(self, value: str, keep: int = 10) -> str:
         if len(value) <= keep:
@@ -75,17 +84,27 @@ class Logger:
             return self._sanitize_string(value)
         return value
 
+    def _message(self, value: Any) -> str:
+        sanitized = self._sanitize(value)
+        if isinstance(sanitized, str):
+            return sanitized
+        return json.dumps(sanitized, ensure_ascii=False, default=str)
+
     def debug(self, message: Any) -> None:
-        self._logger.debug(self._sanitize(message))
+        if self._enabled("debug"):
+            self._logger.debug(self._message(message))
 
     def info(self, message: Any) -> None:
-        self._logger.info(self._sanitize(message))
+        if self._enabled("info"):
+            self._logger.info(self._message(message))
 
     def warning(self, message: Any) -> None:
-        self._logger.warning(self._sanitize(message))
+        if self._enabled("warning"):
+            self._logger.warning(self._message(message))
 
     def error(self, message: Any) -> None:
-        self._logger.error(self._sanitize(message))
+        if self._enabled("error"):
+            self._logger.error(self._message(message))
 
 
 logger = Logger()

@@ -1,35 +1,62 @@
 from __future__ import annotations
 
 from contextlib import asynccontextmanager
+import os
 from threading import Event
 
+from anyio.to_thread import current_default_thread_limiter
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
-from fastapi.staticfiles import StaticFiles
 
-from api import accounts, ai, system
-from api.support import resolve_web_asset, start_limited_account_watcher
-from services.account_service import account_service
-from services.chatgpt_service import ChatGPTService
+from api import accounts, ai, image_tasks, system
+from api.errors import install_exception_handlers
+from api.support import resolve_web_asset, start_image_cooldown_watcher, start_limited_account_watcher
+from services.backup_service import backup_service
 from services.config import config
+from services.image_service import start_image_cleanup_scheduler
+from services.realtime_monitor_service import realtime_monitor_service
+
+
+def _threadpool_tokens() -> int:
+    try:
+        return max(1, int(str(os.getenv("CHATGPT2API_THREAD_TOKENS", "") or 80).strip()))
+    except (TypeError, ValueError):
+        return 80
+
+
+def _configure_threadpool() -> None:
+    tokens = _threadpool_tokens()
+    limiter = current_default_thread_limiter()
+    previous_tokens = int(getattr(limiter, "total_tokens", 0) or 0)
+    if previous_tokens != tokens:
+        limiter.total_tokens = tokens
+    realtime_monitor_service.set_threadpool(tokens=tokens, previous_tokens=previous_tokens)
 
 
 def create_app() -> FastAPI:
-    chatgpt_service = ChatGPTService(account_service)
     app_version = config.app_version
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
+        _configure_threadpool()
         stop_event = Event()
+        cooldown_thread = start_image_cooldown_watcher(stop_event)
         thread = start_limited_account_watcher(stop_event)
+        cleanup_thread = start_image_cleanup_scheduler(stop_event)
+        backup_service.start()
+        config.cleanup_old_images()
         try:
             yield
         finally:
             stop_event.set()
             thread.join(timeout=1)
+            cooldown_thread.join(timeout=1)
+            cleanup_thread.join(timeout=1)
+            backup_service.stop()
 
     app = FastAPI(title="chatgpt2api", version=app_version, lifespan=lifespan)
+    install_exception_handlers(app)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
@@ -37,13 +64,12 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.include_router(ai.create_router(chatgpt_service))
+    app.include_router(ai.create_router())
     app.include_router(accounts.create_router())
+    app.include_router(image_tasks.create_router())
     app.include_router(system.create_router(app_version))
-    if config.images_dir.exists():
-        app.mount("/images", StaticFiles(directory=str(config.images_dir)), name="images")
 
-    @app.get("/{full_path:path}", include_in_schema=False)
+    @app.api_route("/{full_path:path}", methods=["GET", "HEAD"], include_in_schema=False)
     async def serve_web(full_path: str):
         asset = resolve_web_asset(full_path)
         if asset is not None:

@@ -16,3 +16,45 @@ edit
 docker-compose-local.yml
 
 .claude/settings.local.json
+
+# Environment variables
+.env
+.env.local
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Git cache
+git_cache/
+
+# 调试/测试输出目录
+loginwithpassword_*/
+logwithemailverifycode_*/
+test_batch_output/
+
+# Local credentials, operational notes and generated output
+/.codex/
+/.pytest_cache/
+/.ruff_cache/
+/.mypy_cache/
+/config.json
+config.local*.json
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.txt
+accounts*.json
+auth_keys*.json
+*.jsonl
+*.log
+*.tsbuildinfo
+/docker/upstream-v1.7/
+/duplicate-email-accounts-*.md
+/scripts/_*.py
+/test/_*.json
+/test/_sdk*.js

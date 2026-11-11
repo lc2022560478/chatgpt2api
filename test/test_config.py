@@ -58,6 +58,58 @@ class ConfigLoadingTests(unittest.TestCase):
                 else:
                     module.os.environ["CHATGPT2API_AUTH_KEY"] = old_env_auth_key
 
+    def test_image_account_retry_settings_use_safe_defaults_and_bounds(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            config_path = Path(tmp_dir) / "config.json"
+            config_path.write_text(json.dumps({"auth-key": "test-auth"}), encoding="utf-8")
+            store = self.config_module.ConfigStore(config_path)
+
+            self.assertTrue(store.image_account_retry_enabled)
+            self.assertEqual(store.image_max_account_attempts, 3)
+            self.assertEqual(store.image_stream_timeout_secs, 80)
+            self.assertEqual(store.image_request_timeout_secs, 300)
+            self.assertTrue(store.get()["image_account_retry_enabled"])
+            self.assertEqual(store.get()["image_max_account_attempts"], 3)
+            self.assertEqual(store.get()["image_stream_timeout_secs"], 80)
+            self.assertEqual(store.get()["image_request_timeout_secs"], 300)
+
+            store.update({"image_account_retry_enabled": "off", "image_max_account_attempts": 99})
+            self.assertFalse(store.image_account_retry_enabled)
+            self.assertEqual(store.image_max_account_attempts, 8)
+
+            store.update({"image_max_account_attempts": -1})
+            self.assertEqual(store.image_max_account_attempts, 1)
+
+            store.update({"image_max_account_attempts": "not-a-number"})
+            self.assertEqual(store.image_max_account_attempts, 3)
+
+            store.update({"image_request_timeout_secs": 1})
+            self.assertEqual(store.image_request_timeout_secs, 30)
+
+            store.update({"image_request_timeout_secs": 999})
+            self.assertEqual(store.image_request_timeout_secs, 600)
+
+            store.update({"image_request_timeout_secs": "not-a-number"})
+            self.assertEqual(store.image_request_timeout_secs, 300)
+
+            store.update({"image_stream_timeout_secs": 0})
+            self.assertEqual(store.image_stream_timeout_secs, 1)
+
+            store.update({"image_stream_timeout_secs": 999})
+            self.assertEqual(store.image_stream_timeout_secs, 600)
+
+            store.update({"image_stream_timeout_secs": "not-a-number"})
+            self.assertEqual(store.image_stream_timeout_secs, 80)
+
+            store.update({"image_poll_timeout_secs": 0})
+            self.assertEqual(store.image_poll_timeout_secs, 1)
+
+            store.update({"image_poll_timeout_secs": 999})
+            self.assertEqual(store.image_poll_timeout_secs, 600)
+
+            store.update({"image_poll_timeout_secs": "not-a-number"})
+            self.assertEqual(store.image_poll_timeout_secs, 60)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,13 @@
+title = "ChatGPT2API secret scan configuration"
+
+[extend]
+useDefault = true
+
+# Base64-encoded public Auth0 SDK name/version header, not a credential.
+# Verified against public upstream commit e55aef2.
+[[allowlists]]
+description = "Public Auth0 SDK metadata header"
+condition = "AND"
+paths = ['''services[\/](openai_oauth|account_service)\.py$''']
+regexTarget = "secret"
+regexes = ['''^eyJuYW1lIjoiYXV0aDAtc3BhLWpzIiwidmVyc2lvbiI6IjEuMjEuMCJ9$''']

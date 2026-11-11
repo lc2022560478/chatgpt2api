@@ -1,0 +1,15 @@
+{
+  "name": "chatgpt2api-sentinel-solver",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Private Sentinel/Turnstile challenge solver for chatgpt2api, backed by a real Chromium browser.",
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.49.0"
+  }
+}

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   animate,
   motion,
@@ -138,7 +138,8 @@ export function DiaTextReveal({
   fixedWidth = false,
   ...props
 }: DiaTextRevealProps) {
-  const texts = Array.isArray(text) ? text : [text]
+  const texts = useMemo(() => (Array.isArray(text) ? text : [text]), [text])
+  const textKey = texts.join("\0")
   const isMulti = texts.length > 1
   const prefersReducedMotion = useReducedMotion()
 
@@ -152,15 +153,6 @@ export function DiaTextReveal({
     repeatDelay,
     texts,
   })
-  optsRef.current = {
-    colors,
-    textColor,
-    duration,
-    delay,
-    repeat,
-    repeatDelay,
-    texts,
-  }
 
   const indexRef = useRef(0)
   const hasPlayedRef = useRef(false)
@@ -179,34 +171,46 @@ export function DiaTextReveal({
 
   const isInView = useInView(spanRef, { once, amount: 0.1 })
 
+  optsRef.current = {
+    colors,
+    textColor,
+    duration,
+    delay,
+    repeat,
+    repeatDelay,
+    texts,
+  }
+
   useEffect(() => {
     const el = spanRef.current
     if (!el || !isMulti) return
     setMeasuredWidths(measureWidths(el, texts))
-  }, [Array.isArray(text) ? text.join("\0") : text])
+  }, [isMulti, textKey, texts])
 
-  playRef.current = () => {
-    const { duration, delay, repeat, repeatDelay, texts } = optsRef.current
+  useEffect(() => {
+    playRef.current = () => {
+      const { duration, delay, repeat, repeatDelay, texts } = optsRef.current
 
-    sweepPos.set(SWEEP_START)
+      sweepPos.set(SWEEP_START)
 
-    const controls = animate(sweepPos, SWEEP_END, {
-      duration,
-      delay,
-      ease: sweepEase,
-      onComplete() {
-        if (!repeat) return
-        timerRef.current = setTimeout(() => {
-          const next = (indexRef.current + 1) % texts.length
-          indexRef.current = next
-          setActiveIndex(next)
-          playRef.current()
-        }, repeatDelay * 1000)
-      },
-    })
+      const controls = animate(sweepPos, SWEEP_END, {
+        duration,
+        delay,
+        ease: sweepEase,
+        onComplete() {
+          if (!repeat) return
+          timerRef.current = setTimeout(() => {
+            const next = (indexRef.current + 1) % texts.length
+            indexRef.current = next
+            setActiveIndex(next)
+            playRef.current()
+          }, repeatDelay * 1000)
+        },
+      })
 
-    stopRef.current = () => controls.stop()
-  }
+      stopRef.current = () => controls.stop()
+    }
+  }, [sweepPos])
 
   useEffect(() => {
     if (prefersReducedMotion) {
